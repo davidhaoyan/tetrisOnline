@@ -1,0 +1,41 @@
+<!DOCTYPE html>
+<html>
+<head>
+    <title>Chatroom</title>
+    <link href="styles.css" rel="stylesheet">
+    <link href="https://fonts.cdnfonts.com/css/cascadia-code" rel="stylesheet">
+</head>
+<body>
+    <div id="tetris-container" autofocus>
+        <div id="tetris-playfield"></div>
+        <div id="tetris-side"></div>
+        <div id="tetris-hold"></div>
+    </div>
+    <div id="multi-container"></div>
+    <div id="chatroom-container">
+        <form id="register-form">
+            <span> Enter your username:</span>
+            <div id="enter-username" contenteditable="true"></div>
+            <span id="register-message" style="display: none;"></span>
+        </form>
+        <div id="chatroom">
+            <div id="message-container">
+                <ul id="messages"></ul>
+            </div>
+            <div id="current-users">
+                <span>Current Users:</span>
+                <ul id="users"></ul>
+            </div>
+            <form id="message-form">
+                <span id="pre-enter-message" style="display:hidden"></span>
+                <div id="enter-message" autofocus contenteditable="true"></div>
+            </form>
+        </div>
+    </div>
+    <div id="main-separator"></div>
+    <div id="side-separator"></div>
+    <script src="https://code.jquery.com/jquery-3.6.1.min.js"></script>
+    <script src="scripts/chatroom.js"></script>
+    <script src="scripts/tetris.js"></script>
+</body>
+</html>
