@@ -109,7 +109,6 @@ function updateOpponent(matrix, shape, index) {
     }
 }
 
-
 function wipeQueue() {
     for (let j = 0; j < HEIGHT; j++) {
         for (let i = 0; i < 4; i++) {
@@ -136,16 +135,14 @@ function activateCell(row, col, colour, type) {
     $(`#${type}r${row}c${col}`).css("background-color", colour);
 }
 
-// Matrix has a border of 2s on left, right and bottom edge. Therefore for x, have to offset by 1; y is ok, no offset.
+// Matrix has a border of 2 cells on left, right and bottom border. Top border is 0.
 function wipeCells(matrix) {
-    let height = matrix.length;
-    let width = matrix[0].length;
-    let newMatrix = new Array(height);
+    let newMatrix = new Array(HEIGHT+3);
 
     // New matrix wipes the existing 1s but keeps the 2s (dead cells/border)
-    for (var j = 0; j < height; j++) {
-        newMatrix[j] = new Array(width).fill(0);
-        for (var i = 0; i < width; i++) {
+    for (var j = 0; j < HEIGHT+3; j++) {
+        newMatrix[j] = new Array(WIDTH+2).fill(0);
+        for (var i = 0; i < WIDTH+2; i++) {
             if (matrix[j][i] > 1) {
                 newMatrix[j][i] = matrix[j][i];    
             }
@@ -211,21 +208,21 @@ function findPoints(shape, rotation, row, col) {
         return points;
     }
     for (var i = 0; i < 4; i++) {
-        r = row+offsets[rotation][i][0];
+        r = row+offsets[rotation][i][0]+2;
         c = col+offsets[rotation][i][1]+1; // Matrix offset
         points.push([r,c]);
     }
     return points;
 }
 
-// Draws current tetromino
+// Wipes matrix and updates current tetromino on to matrix
 function updateTetromino(matrix, shape, rotation, row, col) {
     matrix = wipeCells(matrix);
     let points = findPoints(shape, rotation, row, col);
     for (var i = 0; i < points.length; i++) {
         let r = points[i][0];
         let c = points[i][1];
-        if (r >= 0 && r <= HEIGHT && c >= 0 && c <= WIDTH+1) {
+        if (r >= 0 && r <= HEIGHT+2 && c >= 0 && c <= WIDTH+1) {
             matrix[r][c] = 1;
         }
     }
@@ -242,21 +239,21 @@ function createBag() {
     return pool;
 }
 
-// Draws dead cells
+// Draws matrix onto display
 function drawMatrix(matrix, shape, rotation, row, col) {
     let points;
     ({ matrix, points } = updateTetromino(matrix, shape, rotation, row, col));
-    for (j = 0; j < HEIGHT; j++) {
+    for (j = 2; j < HEIGHT+3; j++) {
         for (i = 1; i < WIDTH+1; i++) {
-            $(`#r${j}c${i-1}`).css("opacity", "1");
+            $(`#r${j-2}c${i-1}`).css("opacity", "1");
             if (matrix[j][i] == 1) {
-                activateCell(j, i-1, `var(--${shape})`, "");
+                activateCell(j-2, i-1, `var(--${shape})`, "");
             }
             else if (matrix[j][i] == 0) {
-                activateCell(j, i-1, "var(--cell-grey)", "");
+                activateCell(j-2, i-1, "var(--cell-grey)", "");
             }
             else {
-                activateCell(j, i-1, `var(--${String.fromCharCode(matrix[j][i])})`, ""); 
+                activateCell(j-2, i-1, `var(--${String.fromCharCode(matrix[j][i])})`, ""); 
             }
         }
     }
@@ -285,7 +282,7 @@ function checkValidXY(direction, matrix, points) {
     for (let i = 0; i < points.length; i++) {
         let r = points[i][0];
         let c = points[i][1];
-        if ((r >= 0) && (r <= HEIGHT) && (c >= 0) && (c <= WIDTH+1) && (matrix[r+offset[0]][c+offset[1]] > 1)) {
+        if ((r >= 0) && (r <= HEIGHT+2) && (c >= 0) && (c <= WIDTH+1) && (matrix[r+offset[0]][c+offset[1]] > 1)) {
             return false;
         }
     }
@@ -309,7 +306,7 @@ function checkValidRotation(direction, matrix, row, col, shape, rotation) {
     for (let i = 0; i < points.length; i++) {
         let r = points[i][0];
         let c = points[i][1];
-        if (r >= 0 && r <= HEIGHT && c >= 0 && c <= WIDTH+1 && matrix[r][c] > 1) {
+        if (r >= 0 && r <= HEIGHT+2 && c >= 0 && c <= WIDTH+1 && matrix[r][c] > 1) {
             if (checkValidXY("right", matrix, points)) { 
                 return [0, 1];
             }
@@ -326,9 +323,9 @@ function checkValidRotation(direction, matrix, row, col, shape, rotation) {
 }
 
 function initializeMatrix() {
-    let matrix = new Array(HEIGHT)
-    for (var j = 0; j < HEIGHT+1; j++) {
-        if (j == HEIGHT) {
+    let matrix = new Array(HEIGHT+3)
+    for (var j = 0; j < HEIGHT+3; j++) {
+        if (j == HEIGHT+2) {
             matrix[j] = new Array(WIDTH+2).fill(2);
         } else {
             row = new Array(WIDTH+2).fill(0);
@@ -337,11 +334,13 @@ function initializeMatrix() {
             matrix[j] = row;
         }
     } 
+    console.log("init", matrix);
     return matrix;
 
 }
 
 function killCells(matrix, points, shape) {
+    console.log(points);    
     if (points == undefined || shape == undefined) {
         return matrix;
     }
@@ -361,8 +360,8 @@ function updateGhost(matrix, points, shape) {
     for (var i = 0; i < points.length; i++) {
         let r = points[i][0];
         let c = points[i][1];
-        activateCell(r, c-1, `var(--${shape}`, "");
-        $(`#r${r}c${c-1}`).css("opacity", "0.5");
+        activateCell(r-2, c-1, `var(--${shape}`, "");
+        $(`#r${r-2}c${c-1}`).css("opacity", "0.5");
     }
 } 
 
@@ -404,7 +403,7 @@ function holdTetromino(shape, hold, bag) {
 function checkTetris(matrix) {
     clearRows = new Array()
     let garbageLines = 0;
-    outerloop: for (let j = 0; j < HEIGHT; j++) {
+    outerloop: for (let j = 0; j < HEIGHT+2; j++) {
         for (let i = 1; i < WIDTH+1; i++) {
             if (matrix[j][i] == 0) {
                 continue outerloop;
@@ -418,7 +417,7 @@ function checkTetris(matrix) {
 
     for (let r = 0; r < clearRows.length; r++) {
         row = clearRows[r]
-        if (row >= 0 && row <= HEIGHT) {
+        if (row >= 0 && row <= HEIGHT+1) {
             for (let j = row; j > 0; j--) {
                 for (let i = 1; i < WIDTH+1; i++) {
                     matrix[j][i] = matrix[j-1][i]
@@ -562,8 +561,14 @@ function gameLoop() {
         ({ matrix, points } = drawMatrix(matrix, shape, rotation, row, col));
         sendMatrix(matrix, shape);
     });
+    for (let j = 0; j < HEIGHT; j++) {
+        for (let i = 1; i < WIDTH+1; i++) {
+            activateCell(j, i-1, "var(--cell-grey)", ""); 
+        }
+    }
     ({ matrix, shape, rotation, row, col, bag, holdValid } = nextTetromino(matrix, points, shape, bag));
     var loop = function () {
+        console.log(matrix);
         ({ matrix, points } = drawMatrix(matrix, shape, rotation, row, col));
         if (garbage > 0) {
             spawnGarbage(garbage, matrix);
@@ -577,9 +582,9 @@ function gameLoop() {
             ({ matrix, shape, rotation, row, col, bag, holdValid } = nextTetromino(matrix, points, shape, bag));
             tick = updateTick(tick, tickInterval, maxSpeed);
         }
-        setTimeout(loop, tick)
+        loopTimeout = setTimeout(loop, tick);
     };
-    setTimeout(loop, tick);
+    let loopTimeout = setTimeout(loop, tick);
 }
 
 createPlayfield();
@@ -590,6 +595,5 @@ wipeQueue();
 gameLoop();
 
 // TODO:
-// - big bug
 // - Score
 // - Game Over
