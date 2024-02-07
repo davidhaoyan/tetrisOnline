@@ -1,6 +1,6 @@
 let ws;
-let username;
 let mode = 0; // 0=register, 1=chat
+
 $("#chatroom-container").on("click", () => {
   switch (mode) {
     case 0:
@@ -21,6 +21,7 @@ $("#register-form").on("keydown", (e) => {
 
 $("#register-form").on("keyup", (e) => {
   e.preventDefault();
+  let username;
   if (e.key === 'Enter')  {
     username = $("#enter-username").text().trim();
     if (username == "") {
@@ -42,11 +43,10 @@ $("#register-form").on("keyup", (e) => {
         ws.onmessage = (event) => {
           const data = JSON.parse(event.data);
           const { type, payload } = data;
-          console.log("here", event);
           switch (type) {
             case "connectedUser":
               connectCurrentUser(payload);
-              console.log("User connected:", username);
+              console.log("User connected:", payload["username"]);
               break;
             case "disconnectedUser":
               removeCurrentUser(payload);
@@ -54,6 +54,13 @@ $("#register-form").on("keyup", (e) => {
               break;
             case "message":
               sendMessage(payload);
+              break;
+            case "opponentMatrix":
+              updateOpponent(payload.matrix, payload.shape, payload.displayIndex);
+              break;
+            case "garbage":
+              garbage = payload;
+              console.log("Received garbage", garbage);
               break;
           }
         };

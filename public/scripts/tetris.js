@@ -1,6 +1,8 @@
-var HEIGHT = 20;
-var WIDTH = 10;
-var QUEUESIZE = 5;
+const HEIGHT = 20;
+const WIDTH = 10;
+const QUEUESIZE = 5;
+const LOBBYSIZE = 4;
+var garbage = 0;
 
 function createPlayfield() {
     var cells = document.createDocumentFragment();
@@ -16,6 +18,29 @@ function createPlayfield() {
         }
         document.getElementById("tetris-playfield").appendChild(cells);
     }
+}
+
+function createOpponent() {
+    var playfields = document.createDocumentFragment();
+    for (let p = 0; p < LOBBYSIZE-1; p++) {
+        var playfield = document.createElement("div");
+        playfield.className = "opponent-playfield";
+        playfield.id = "opponent-playfield" + p;
+        playfields.appendChild(playfield);
+        for (let j = 0; j < HEIGHT; j++) {
+            var row = document.createElement("div");
+            row.className = "row";
+            playfield.appendChild(row);
+            for (let i = 0; i < WIDTH; i++) {
+                var cell = document.createElement("div");
+                cell.id = `o${p}r${j}c${i}`;
+                cell.className = "ocell";
+                row.appendChild(cell);
+            }
+        }
+        playfields.appendChild(playfield);
+    }
+    document.getElementById("opponent-container").appendChild(playfields);
 }
 
 function createQueue() {
@@ -67,6 +92,23 @@ function updateHold(shape) {
         activateCell(r, c, `var(--${shape})`, "h");
     }
 }
+
+function updateOpponent(matrix, shape, index) {
+    for (let j = 0; j < HEIGHT; j++) {
+        for (let i = 1; i < WIDTH+1; i++) {
+            if (matrix[j][i] == 0) {
+                activateCell(j, i-1, "var(--cell-grey)", `o${index}`);
+            }
+            else if (matrix[j][i] == 1) {
+                activateCell(j, i-1, `var(--${shape})`, `o${index}`);
+            }
+            else {
+                activateCell(j, i-1, `var(--${String.fromCharCode(matrix[j][i])})`, `o${index}`); 
+            }
+        }
+    }
+}
+
 
 function wipeQueue() {
     for (let j = 0; j < HEIGHT; j++) {
@@ -161,7 +203,7 @@ function getOffsets(shape) {
     return offsets;
 }
 
-// Returns points as the indices the are on the matrix0
+// Returns points as the indices the are on the matrix
 function findPoints(shape, rotation, row, col) {
     let points = [];
     let offsets = getOffsets(shape);
@@ -258,6 +300,9 @@ function checkValidRotation(direction, matrix, row, col, shape, rotation) {
             break;
         case ("anticlockwise"):
             rotation = (rotation - 1) % 4;
+            if (rotation < 0) {
+                rotation += 4;
+            }
             break;
     }
     let points = findPoints(shape, rotation, row, col);
@@ -358,17 +403,19 @@ function holdTetromino(shape, hold, bag) {
 
 function checkTetris(matrix) {
     clearRows = new Array()
+    let garbageLines = 0;
     outerloop: for (let j = 0; j < HEIGHT; j++) {
         for (let i = 1; i < WIDTH+1; i++) {
             if (matrix[j][i] == 0) {
                 continue outerloop;
             }
         }
+        if (matrix[j][1] == 'G'.charCodeAt(0) || matrix[j][WIDTH] == 'G'.charCodeAt(0)) {
+            garbageLines++;
+        }
         clearRows.push(j)
     }
-    if (clearRows[clearRows.length-1] - clearRows[0] == 3) {
-        console.log("TETRIS");
-    }
+
     for (let r = 0; r < clearRows.length; r++) {
         row = clearRows[r]
         if (row >= 0 && row <= HEIGHT) {
@@ -382,11 +429,50 @@ function checkTetris(matrix) {
             matrix[0][WIDTH+1] = 2;
         }
     }
+    let linesCleared = clearRows.length - garbageLines;
+    if (linesCleared > 1) {
+        if (linesCleared == 4) {
+            sendGarbage(4);
+        } else {
+            sendGarbage(linesCleared-1);
+        }
+    }
     return matrix;
 }
 
 function updateTick(tick, tickInterval, maxSpeed) {
     return Math.max(tick - tickInterval, maxSpeed);
+}
+
+function sendGarbage(lines) {
+    if (ws && ws.readyState === WebSocket.OPEN) {
+        ws.send(JSON.stringify({ type: "garbage", payload: lines }));
+    }
+}
+
+function spawnGarbage(lines, matrix) {
+    let c = Math.floor(Math.random() * WIDTH) + 1;
+    for (let l = 0; l < lines; l++) {
+        for (let j = 0; j < HEIGHT; j++) {
+            if (j == HEIGHT-1) {
+                matrix[j] = new Array(WIDTH+2).fill("G".charCodeAt(0));
+                matrix[j][c] = 0;
+                matrix[j][0] = 2;
+                matrix[j][WIDTH+1] = 2;
+            } else {
+                for (let i = 1; i < WIDTH+1; i++) {
+                    matrix[j][i] = matrix[j+1][i];
+                }
+            }
+        }
+    }
+    return matrix;
+}
+
+function sendMatrix(matrix, shape) {
+    if (ws && ws.readyState === WebSocket.OPEN) {
+        ws.send(JSON.stringify( { type: "matrix", payload: {matrix: matrix, shape: shape} }));
+    }
 }
 
 function gameLoop() {
@@ -395,7 +481,7 @@ function gameLoop() {
     let col = 5;
     let tick = 2000;
     let tickInterval = 50;
-    let maxSpeed = 300;
+    let maxSpeed = 500;
     let rotation = 0;
     let points;
     let shape;
@@ -416,6 +502,24 @@ function gameLoop() {
             }
             if (adjustments[0] == 0 && adjustments[1] == 0) {   
                 rotation = (rotation + 1) % 4;
+            }
+        }
+        if (e.key == 'x') {
+            e.preventDefault();
+            let adjustments = checkValidRotation("anticlockwise", matrix, row, col, shape, rotation);
+            while (!(adjustments[0] == 0 && adjustments[1] == 0)) {
+                if (adjustments[0] == -1 && adjustments[1] == -1) {
+                    break;
+                }
+                row += adjustments[0];
+                col += adjustments[1];
+                adjustments = checkValidRotation("anticlockwise", matrix, row, col, shape, rotation);
+            }
+            if (adjustments[0] == 0 && adjustments[1] == 0) {   
+                rotation = (rotation - 1) % 4;
+                if (rotation < 0) {
+                    rotation += 4;
+                }
             }
         }
         if (e.key == ' ') {
@@ -456,24 +560,30 @@ function gameLoop() {
         }
         matrix = wipeCells(matrix);
         ({ matrix, points } = drawMatrix(matrix, shape, rotation, row, col));
+        sendMatrix(matrix, shape);
     });
     ({ matrix, shape, rotation, row, col, bag, holdValid } = nextTetromino(matrix, points, shape, bag));
     var loop = function () {
-            console.log(tick);
-            ({ matrix, points } = drawMatrix(matrix, shape, rotation, row, col));
-            if (checkValidXY("down", matrix, points)) {
-                row++;
-            }
-            else {
-                ({ matrix, shape, rotation, row, col, bag, holdValid } = nextTetromino(matrix, points, shape, bag));
-                tick = updateTick(tick, tickInterval, maxSpeed);
-            }
-            setTimeout(loop, tick)
+        ({ matrix, points } = drawMatrix(matrix, shape, rotation, row, col));
+        if (garbage > 0) {
+            spawnGarbage(garbage, matrix);
+            garbage = 0
+        }
+        sendMatrix(matrix, shape);
+        if (checkValidXY("down", matrix, points)) {
+            row++;
+        }
+        else {
+            ({ matrix, shape, rotation, row, col, bag, holdValid } = nextTetromino(matrix, points, shape, bag));
+            tick = updateTick(tick, tickInterval, maxSpeed);
+        }
+        setTimeout(loop, tick)
     };
     setTimeout(loop, tick);
 }
 
 createPlayfield();
+createOpponent();
 createQueue();
 createHold();
 wipeQueue();

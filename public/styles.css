@@ -35,6 +35,13 @@ body {
     height: 100%;
 }
 
+.ocell {
+    display: block;
+    width: 100%;
+    height: 100%;
+    background-color: var(--cell-grey);
+}
+
 #tetris-container {
     display: flex;
     position: absolute;
@@ -52,9 +59,9 @@ body {
     position: absolute;
     top: 50%;
     left: 50%;
+    aspect-ratio: 1 / 2;
     transform: translate(-50%, -50%);
-    height: 80%;
-    width: 40%;
+    height: 500px;
     background-color: var(--white);
 }
 
@@ -64,9 +71,9 @@ body {
     position: absolute;
     top: 49.5%;
     left: 80%;
-    transform: translate(-50%, -50%);
-    height: 80%;
-    width: 16%;
+    aspect-ratio: 1 / 5;
+    transform: translate(-50%, -50%);  
+    height: 500px;
 }
 
 #tetris-hold {
@@ -74,10 +81,10 @@ body {
     flex-direction: column;
     position: absolute;
     top: 18.1%;
-    left: 20%;
+    left: 17%;
+    aspect-ratio: 1 / 1;
     transform: translate(-50%, -50%);
-    height: 16%;
-    width: 16%;
+    height: 100px;
 }
 
 #main-separator {
@@ -90,7 +97,11 @@ body {
     background-color: var(--white);
 }
 
-#multi-container {
+#opponent-container {
+    display: flex;
+    flex-direction: row;
+    justify-content: center;
+    align-items: center;
     position: absolute;
     background-color: var(--bg-grey);
     color: var(--white);
@@ -98,6 +109,15 @@ body {
     left: 50%;
     height: 67%;
     width: 50%;
+}
+
+.opponent-playfield {
+    display: flex;
+    flex-direction: column;
+    height: 300px;
+    aspect-ratio: 1 / 2;
+    background-color: var(--white);
+    margin: 2rem;
 }
 
 #side-separator {

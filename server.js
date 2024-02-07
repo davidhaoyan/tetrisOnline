@@ -26,7 +26,6 @@ app.post("/register", (req, res) => {
 });
 
 wss.on('connection', (ws) => {
-  console.log("Client connected");
   const user = users.find((user) => user.ws === null);
   if (user) {
     user.ws = ws;
@@ -39,7 +38,6 @@ wss.on('connection', (ws) => {
     console.log("No user slot available");
     ws.close();
   }
-
   ws.on('message', (message) => {
     const { type, payload } = JSON.parse(message);
     const user = users.find((user) => user.ws === ws);
@@ -52,6 +50,44 @@ wss.on('connection', (ws) => {
           timestamp: new Date().toISOString()
         };
         broadcastChat(chatEntry);
+        break;
+      case "garbage":
+        others = users.filter((u) => u.username !== user.username);
+        others[Math.floor(Math.random()*others.length)].ws.send(JSON.stringify({ type: "garbage", payload: payload }));
+        break;
+      case "matrix":
+        // User 1 sends matrix0 to 2 3 4 
+        // User 2 sends matrix0 to 1 and matrix1 to 3 4 
+        // User 3 sends matrix1 to 1 2 and matrix2 to 4
+        // User 4 sends matrix2 to 1 2 3
+        let userIndex = users.indexOf(user);
+        let displayOrdering = (userIndex) => {
+          switch (userIndex) {
+            case 0:
+              return [0, 0, 0];
+            case 1:
+              return [0, 1, 1];
+            case 2:
+              return [1, 1, 2];
+            case 3:
+              return [2, 2, 2];
+          };
+        }
+        let count = 0;
+        const matrixEntry = {
+          username: user.username,
+          matrix: payload.matrix,
+          shape: payload.shape,
+          displayIndex: -1,
+          timestamp: new Date().toISOString()
+        };
+        for (let i = 0; i < users.length; i++) {
+          if (users[i].username !== user.username) {
+            matrixEntry.displayIndex = displayOrdering(userIndex)[count];
+            users[i].ws.send(JSON.stringify({ type: `opponentMatrix`, payload: matrixEntry }));
+            count++;
+          }
+        }
         break;
     }
   });
