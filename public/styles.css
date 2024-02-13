@@ -11,6 +11,27 @@
     --L: #ffc07d;
 }
 
+#time {
+    display: flex;
+    position: absolute;
+    top: 8%;
+    left: 50%;
+    transform: translate(-50%, -50%);
+}
+
+#help-container {
+    display: flex;
+    position: absolute;
+    flex-direction: column; 
+    bottom: 2%;
+    left: 2%;
+}
+
+.help-text {
+    display: none;
+    padding: 0.1rem;
+}
+
 body {
     font-family: 'Cascadia Code', sans-serif; 
 }
@@ -97,6 +118,10 @@ body {
     background-color: var(--white);
 }
 
+.opponent-name {
+    margin: 0.5rem 0.5rem;
+}
+
 #opponent-container {
     display: flex;
     flex-direction: row;
@@ -111,13 +136,21 @@ body {
     width: 50%;
 }
 
+.opponent-playfield-container {
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    height: 350px;
+    aspect-ratio: 1 / 2;
+    margin: 1.5rem;
+}
+
 .opponent-playfield {
     display: flex;
     flex-direction: column;
     height: 300px;
     aspect-ratio: 1 / 2;
     background-color: var(--white);
-    margin: 2rem;
 }
 
 #side-separator {

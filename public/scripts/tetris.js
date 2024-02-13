@@ -3,6 +3,24 @@ const WIDTH = 10;
 const QUEUESIZE = 5;
 const LOBBYSIZE = 4;
 var garbage = 0;
+var gameOver = true;
+var start;
+var timeInterval;
+var help = false
+
+function createHelpText() {
+    var instructions = ["Move: Arrow Keys", "Rotate: z / c", "Hold: ctrl", "Hard drop: space", "Start game: F4", "Multiplayer: F4 in lobby"];
+    for (let i = 0; i < instructions.length; i++) {
+        var help = document.createElement("div");
+        help.className = "help-text";
+        help.textContent = instructions[i];
+        $("#help-container").append(help);
+    }
+    
+    $("#help-button").on("click", () => {
+        $(".help-text").toggle();
+    })
+}
 
 function createPlayfield() {
     var cells = document.createDocumentFragment();
@@ -24,9 +42,13 @@ function createOpponent() {
     var playfields = document.createDocumentFragment();
     for (let p = 0; p < LOBBYSIZE-1; p++) {
         var playfield = document.createElement("div");
+        var playfieldContainer = document.createElement("div");
+        var playfieldName = document.createElement("span");
+        playfieldContainer.className = "opponent-playfield-container";
+        playfieldName.className = "opponent-name";
+        playfieldName.id = "opponent-name" + p;
         playfield.className = "opponent-playfield";
         playfield.id = "opponent-playfield" + p;
-        playfields.appendChild(playfield);
         for (let j = 0; j < HEIGHT; j++) {
             var row = document.createElement("div");
             row.className = "row";
@@ -38,7 +60,11 @@ function createOpponent() {
                 row.appendChild(cell);
             }
         }
-        playfields.appendChild(playfield);
+        playfieldName.textContent = " ";
+        playfield.append(playfieldName);
+        playfieldContainer.appendChild(playfield);
+        playfieldContainer.appendChild(playfieldName);
+        playfields.appendChild(playfieldContainer);
     }
     document.getElementById("opponent-container").appendChild(playfields);
 }
@@ -93,17 +119,18 @@ function updateHold(shape) {
     }
 }
 
-function updateOpponent(matrix, shape, index) {
-    for (let j = 0; j < HEIGHT; j++) {
+function updateOpponent(matrix, shape, index, username) {
+    $(`#opponent-name${index}`).text(username);
+    for (let j = 2; j < HEIGHT+2; j++) {
         for (let i = 1; i < WIDTH+1; i++) {
             if (matrix[j][i] == 0) {
-                activateCell(j, i-1, "var(--cell-grey)", `o${index}`);
+                activateCell(j-2, i-1, "var(--cell-grey)", `o${index}`);
             }
             else if (matrix[j][i] == 1) {
-                activateCell(j, i-1, `var(--${shape})`, `o${index}`);
+                activateCell(j-2, i-1, `var(--${shape})`, `o${index}`);
             }
             else {
-                activateCell(j, i-1, `var(--${String.fromCharCode(matrix[j][i])})`, `o${index}`); 
+                activateCell(j-2, i-1, `var(--${String.fromCharCode(matrix[j][i])})`, `o${index}`); 
             }
         }
     }
@@ -119,14 +146,16 @@ function wipeQueue() {
 
 // Queue parameter is an array of 5 tetrominos 
 function updateQueue(queue) {
-    wipeQueue();
-    for (let q = 0; q < QUEUESIZE; q++) {
-        shape = queue[q];
-        let offsets = getOffsets(shape);
-        for (let i = 0; i < 4; i++) {
-            r = (q*4) + 2 + offsets[0][i][0];
-            c = 2 + offsets[0][i][1];
-            activateCell(r, c, `var(--${shape})`, "q")
+    if (!gameOver) {
+        wipeQueue();
+        for (let q = 0; q < QUEUESIZE; q++) {
+            shape = queue[q];
+            let offsets = getOffsets(shape);
+            for (let i = 0; i < 4; i++) {
+                r = (q*4) + 2 + offsets[0][i][0];
+                c = 2 + offsets[0][i][1];
+                activateCell(r, c, `var(--${shape})`, "q")
+            }
         }
     }
 }
@@ -215,20 +244,6 @@ function findPoints(shape, rotation, row, col) {
     return points;
 }
 
-// Wipes matrix and updates current tetromino on to matrix
-function updateTetromino(matrix, shape, rotation, row, col) {
-    matrix = wipeCells(matrix);
-    let points = findPoints(shape, rotation, row, col);
-    for (var i = 0; i < points.length; i++) {
-        let r = points[i][0];
-        let c = points[i][1];
-        if (r >= 0 && r <= HEIGHT+2 && c >= 0 && c <= WIDTH+1) {
-            matrix[r][c] = 1;
-        }
-    }
-    return {matrix, points};
-}
-
 function createBag() {
     let pool = ["I", "O", "T", "S", "Z", "J", "L"];
     // Fisher-Yates shuffle algorithm
@@ -237,28 +252,6 @@ function createBag() {
         [pool[i], pool[j]] = [pool[j], pool[i]];
     }
     return pool;
-}
-
-// Draws matrix onto display
-function drawMatrix(matrix, shape, rotation, row, col) {
-    let points;
-    ({ matrix, points } = updateTetromino(matrix, shape, rotation, row, col));
-    for (j = 2; j < HEIGHT+3; j++) {
-        for (i = 1; i < WIDTH+1; i++) {
-            $(`#r${j-2}c${i-1}`).css("opacity", "1");
-            if (matrix[j][i] == 1) {
-                activateCell(j-2, i-1, `var(--${shape})`, "");
-            }
-            else if (matrix[j][i] == 0) {
-                activateCell(j-2, i-1, "var(--cell-grey)", "");
-            }
-            else {
-                activateCell(j-2, i-1, `var(--${String.fromCharCode(matrix[j][i])})`, ""); 
-            }
-        }
-    }
-    updateGhost(matrix, points, shape);
-    return {matrix, points};
 }
 
 function checkValidXY(direction, matrix, points) {
@@ -334,13 +327,11 @@ function initializeMatrix() {
             matrix[j] = row;
         }
     } 
-    console.log("init", matrix);
     return matrix;
 
 }
 
 function killCells(matrix, points, shape) {
-    console.log(points);    
     if (points == undefined || shape == undefined) {
         return matrix;
     }
@@ -365,6 +356,26 @@ function updateGhost(matrix, points, shape) {
     }
 } 
 
+// Wipes matrix and updates current tetromino on to matrix
+function updateTetromino(matrix, shape, rotation, row, col) {
+    matrix = wipeCells(matrix);
+    let points = findPoints(shape, rotation, row, col);
+    for (var i = 0; i < points.length; i++) {
+        let r = points[i][0];
+        let c = points[i][1];
+        if (r >= 0 && r <= HEIGHT+2 && c >= 0 && c <= WIDTH+1) {
+            if (matrix[r][c] == 0) {
+                matrix[r][c] = 1;
+            }
+            else if (!gameOver) {
+                clearInterval(timeInterval);
+                gameOver = true;
+            }
+        }
+    }
+    return {matrix, points};
+}
+
 function nextTetromino(matrix, points, shape, bag) {
     matrix = killCells(matrix, points, shape);
     matrix = checkTetris(matrix);
@@ -381,6 +392,31 @@ function nextTetromino(matrix, points, shape, bag) {
     updateQueue(bag.slice(0, QUEUESIZE));
     let holdValid = true;
     return { matrix, shape, rotation, row, col, bag, holdValid }
+}
+
+// Draws matrix onto display
+function drawMatrix(matrix, shape, rotation, row, col) {
+    let points;
+    ({ matrix, points } = updateTetromino(matrix, shape, rotation, row, col));
+    if (gameOver) {
+        return {matrix, points};
+    }
+    for (j = 2; j < HEIGHT+3; j++) {
+        for (i = 1; i < WIDTH+1; i++) {
+            $(`#r${j-2}c${i-1}`).css("opacity", "1");
+            if (matrix[j][i] == 1) {
+                activateCell(j-2, i-1, `var(--${shape})`, "");
+            }
+            else if (matrix[j][i] == 0) {
+                activateCell(j-2, i-1, "var(--cell-grey)", "");
+            }
+            else {
+                activateCell(j-2, i-1, `var(--${String.fromCharCode(matrix[j][i])})`, ""); 
+            }
+        }
+    }
+    updateGhost(matrix, points, shape);
+    return {matrix, points};
 }
 
 function holdTetromino(shape, hold, bag) {
@@ -452,8 +488,8 @@ function sendGarbage(lines) {
 function spawnGarbage(lines, matrix) {
     let c = Math.floor(Math.random() * WIDTH) + 1;
     for (let l = 0; l < lines; l++) {
-        for (let j = 0; j < HEIGHT; j++) {
-            if (j == HEIGHT-1) {
+        for (let j = 2; j < HEIGHT+2; j++) {
+            if (j == HEIGHT+1) {
                 matrix[j] = new Array(WIDTH+2).fill("G".charCodeAt(0));
                 matrix[j][c] = 0;
                 matrix[j][0] = 2;
@@ -487,88 +523,101 @@ function gameLoop() {
     let hold;
     let holdValid = true;
     let matrix = initializeMatrix();
-    document.addEventListener("keydown", (e) => {
-        if (e.key == 'c') {
-            e.preventDefault();
-            let adjustments = checkValidRotation("clockwise", matrix, row, col, shape, rotation);
-            while (!(adjustments[0] == 0 && adjustments[1] == 0)) {
-                if (adjustments[0] == -1 && adjustments[1] == -1) {
-                    break;
+    document.addEventListener("keydown", function eventHandler(e) {
+        if (!gameOver) {
+            if (e.key == 'c') {
+                e.preventDefault();
+                let adjustments = checkValidRotation("clockwise", matrix, row, col, shape, rotation);
+                while (!(adjustments[0] == 0 && adjustments[1] == 0)) {
+                    if (adjustments[0] == -1 && adjustments[1] == -1) {
+                        break;
+                    }
+                    row += adjustments[0];
+                    col += adjustments[1];
+                    adjustments = checkValidRotation("clockwise", matrix, row, col, shape, rotation);
                 }
-                row += adjustments[0];
-                col += adjustments[1];
-                adjustments = checkValidRotation("clockwise", matrix, row, col, shape, rotation);
-            }
-            if (adjustments[0] == 0 && adjustments[1] == 0) {   
-                rotation = (rotation + 1) % 4;
-            }
-        }
-        if (e.key == 'x') {
-            e.preventDefault();
-            let adjustments = checkValidRotation("anticlockwise", matrix, row, col, shape, rotation);
-            while (!(adjustments[0] == 0 && adjustments[1] == 0)) {
-                if (adjustments[0] == -1 && adjustments[1] == -1) {
-                    break;
-                }
-                row += adjustments[0];
-                col += adjustments[1];
-                adjustments = checkValidRotation("anticlockwise", matrix, row, col, shape, rotation);
-            }
-            if (adjustments[0] == 0 && adjustments[1] == 0) {   
-                rotation = (rotation - 1) % 4;
-                if (rotation < 0) {
-                    rotation += 4;
+                if (adjustments[0] == 0 && adjustments[1] == 0) {   
+                    rotation = (rotation + 1) % 4;
                 }
             }
-        }
-        if (e.key == ' ') {
-            e.preventDefault();
-            while (checkValidXY("down", matrix, points)) {
-                row++;
-                ({ matrix, points } = drawMatrix(matrix, shape, rotation, row, col));
+            if (e.key == 'x') {
+                e.preventDefault();
+                let adjustments = checkValidRotation("anticlockwise", matrix, row, col, shape, rotation);
+                while (!(adjustments[0] == 0 && adjustments[1] == 0)) {
+                    if (adjustments[0] == -1 && adjustments[1] == -1) {
+                        break;
+                    }
+                    row += adjustments[0];
+                    col += adjustments[1];
+                    adjustments = checkValidRotation("anticlockwise", matrix, row, col, shape, rotation);
+                }
+                if (adjustments[0] == 0 && adjustments[1] == 0) {   
+                    rotation = (rotation - 1) % 4;
+                    if (rotation < 0) {
+                        rotation += 4;
+                    }
+                }
             }
-            ({ matrix, shape, rotation, row, col, bag, holdValid } = nextTetromino(matrix, points, shape, bag));
-            tick = updateTick(tick, tickInterval, maxSpeed);
-        }
-        if (e.ctrlKey) {
-            e.preventDefault();
-            if (holdValid) {
-                ({ shape, hold, holdValid } = holdTetromino(shape, hold, bag));
-                row = 0;
-                col = 5;
-                rotation = 0;
+            if (e.key == ' ') {
+                e.preventDefault();
+                while (checkValidXY("down", matrix, points)) {
+                    row++;
+                    ({ matrix, points } = drawMatrix(matrix, shape, rotation, row, col));
+                }
+                ({ matrix, shape, rotation, row, col, bag, holdValid } = nextTetromino(matrix, points, shape, bag));
+                tick = updateTick(tick, tickInterval, maxSpeed);
             }
-        }
-        if ((e.key == 'ArrowLeft')) {
-            e.preventDefault();
-            if (checkValidXY("left", matrix, points)) {
-                col--;
+            if (e.ctrlKey) {
+                e.preventDefault();
+                if (holdValid) {
+                    ({ shape, hold, holdValid } = holdTetromino(shape, hold, bag));
+                    row = 0;
+                    col = 5;
+                    rotation = 0;
+                }
             }
-        }
-        if ((e.key == 'ArrowRight')) {
-            e.preventDefault();
-            if (checkValidXY("right", matrix, points)) {
-                col++;
+            if ((e.key == 'ArrowLeft')) {
+                e.preventDefault();
+                if (checkValidXY("left", matrix, points)) {
+                    col--;
+                }
             }
-        }
-        if (e.key == 'ArrowDown') {
-            e.preventDefault();
-            if (checkValidXY("down", matrix, points)) {
-                row++;
+            if ((e.key == 'ArrowRight')) {
+                e.preventDefault();
+                if (checkValidXY("right", matrix, points)) {
+                    col++;
+                }
             }
+            if (e.key == 'ArrowDown') {
+                e.preventDefault();
+                if (checkValidXY("down", matrix, points)) {
+                    row++;
+                }
+            }
+            matrix = wipeCells(matrix);
+            ({ matrix, points } = drawMatrix(matrix, shape, rotation, row, col));
+            sendMatrix(matrix, shape);
         }
-        matrix = wipeCells(matrix);
-        ({ matrix, points } = drawMatrix(matrix, shape, rotation, row, col));
-        sendMatrix(matrix, shape);
-    });
+        console.log(e.key);
+        if (e.key == 'F4' && gameOver) {
+            document.removeEventListener("keydown", eventHandler);
+        }
+    });    
+    
     for (let j = 0; j < HEIGHT; j++) {
         for (let i = 1; i < WIDTH+1; i++) {
             activateCell(j, i-1, "var(--cell-grey)", ""); 
         }
     }
     ({ matrix, shape, rotation, row, col, bag, holdValid } = nextTetromino(matrix, points, shape, bag));
+
+    timeInterval = setInterval(function() {
+        updateQueue(bag.slice(0, QUEUESIZE));
+        var delta = (Date.now() - start) / 1000;
+        $("#time").text(delta);
+    }, 30);
     var loop = function () {
-        console.log(matrix);
+        gameOver = false;
         ({ matrix, points } = drawMatrix(matrix, shape, rotation, row, col));
         if (garbage > 0) {
             spawnGarbage(garbage, matrix);
@@ -583,17 +632,29 @@ function gameLoop() {
             tick = updateTick(tick, tickInterval, maxSpeed);
         }
         loopTimeout = setTimeout(loop, tick);
+        if (gameOver) {
+            clearTimeout(loopTimeout);
+        }
     };
-    let loopTimeout = setTimeout(loop, tick);
+    let loopTimeout = setTimeout(loop, 0);
 }
 
+createHelpText();
 createPlayfield();
 createOpponent();
 createQueue();
 createHold();
 wipeQueue();
-gameLoop();
 
-// TODO:
-// - Score
-// - Game Over
+document.addEventListener("keydown", (e) => {
+    if (e.key == 'F4') {
+        e.preventDefault();
+        if (gameOver) {
+            start = Date.now();
+            if (ws && ws.readyState === WebSocket.OPEN) {
+                ws.send(JSON.stringify( { type: "start", payload: {}}));
+            }
+            gameLoop();
+        }
+    }
+})

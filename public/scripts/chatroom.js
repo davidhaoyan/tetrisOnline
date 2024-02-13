@@ -56,12 +56,17 @@ $("#register-form").on("keyup", (e) => {
               sendMessage(payload);
               break;
             case "opponentMatrix":
-              updateOpponent(payload.matrix, payload.shape, payload.displayIndex);
+              updateOpponent(payload.matrix, payload.shape, payload.displayIndex, payload.username);
               break;
             case "garbage":
               garbage = payload;
               console.log("Received garbage", garbage);
               break;
+            case "start":
+              if (gameOver) {
+                start = Date.now();
+                gameLoop();
+              }
           }
         };
         mode = 1;

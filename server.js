@@ -25,7 +25,7 @@ app.post("/register", (req, res) => {
   res.status(200).json({ message: "Username registered successfully", username });
 });
 
-wss.on('connection', (ws) => {
+wss.on('connection', (ws, req) => {
   const user = users.find((user) => user.ws === null);
   if (user) {
     user.ws = ws;
@@ -55,6 +55,11 @@ wss.on('connection', (ws) => {
         others = users.filter((u) => u.username !== user.username);
         others[Math.floor(Math.random()*others.length)].ws.send(JSON.stringify({ type: "garbage", payload: payload }));
         break;
+      case "start":
+        others = users.filter((u) => u.username !== user.username);
+        for (let i = 0; i < others.length; i++) {
+          others[i].ws.send(JSON.stringify({ type: "start", payload: payload }));
+        }
       case "matrix":
         // User 1 sends matrix0 to 2 3 4 
         // User 2 sends matrix0 to 1 and matrix1 to 3 4 
