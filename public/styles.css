@@ -28,7 +28,7 @@
 }
 
 .help-text {
-    display: none;
+    display: block;
     padding: 0.1rem;
 }
 
