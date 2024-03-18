@@ -1,2 +1,2 @@
 ﻿# tetrisOnline
-Multiplayer Tetris with chatroom. Built on WebSocket and written with JavaScript.
+Multiplayer Tetris with chatroom. Built on WebSocket and written in JavaScript.
